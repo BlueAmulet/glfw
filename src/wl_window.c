@@ -2615,6 +2615,8 @@ void _glfwSetWindowSizeWayland(_GLFWwindow* window, int width, int height)
             libdecor_state_free(frameState);
         }
 
+        _glfwInputWindowSize(window, width, height);
+
         if (window->wl.visible)
             _glfwInputWindowDamage(window);
     }
