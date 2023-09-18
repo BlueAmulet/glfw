@@ -513,6 +513,8 @@ typedef struct _GLFWwindowWayland
         wl_fixed_t                  pointerX, pointerY;
         const char*                 cursorName;
     } fallback;
+
+    uint32_t                    pointerAxisTime;
 } _GLFWwindowWayland;
 
 // Wayland-specific global data

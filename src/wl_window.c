@@ -1755,6 +1755,11 @@ static void pointerHandleAxis(void* userData,
     if (!window)
         return;
 
+    // On newer GNOME, there is a bug where scroll events are invoked twice. This code will fix that issue.
+    if (window->wl.pointerAxisTime == time)
+        return;
+    window->wl.pointerAxisTime = time;
+
     if (window->wl.hovered)
     {
         // NOTE: 10 units of motion per mouse wheel step seems to be a common ratio
