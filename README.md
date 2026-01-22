@@ -151,6 +151,7 @@ information on what to include when reporting a bug.
  - [Wayland] Bugfix: Events being lost due to some drivers moving events
    to the default event queue during buffer swapping (#2793)
  - [Wayland]: Add support for dropping files when sandboxed
+ - [Wayland] Bugfix: Use more accurate monitor names
  - [X11] Bugfix: Running without a WM could trigger an assert (#2593,#2601,#2631)
  - [X11] Bugfix: Occasional crash when an idle display awakes (#2766) 
  - [X11] Bugfix: Prevent BadWindow when creating small windows with a content scale
