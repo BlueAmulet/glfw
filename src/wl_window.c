@@ -51,6 +51,8 @@
 #include "xdg-activation-v1-client-protocol.h"
 #include "idle-inhibit-unstable-v1-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
+#include "xdg-toplevel-icon-v1-client-protocol.h"
+#include "cursor-shape-v1-client-protocol.h"
 
 #define GLFW_BORDER_SIZE    4
 #define GLFW_CAPTION_HEIGHT 24
@@ -1221,9 +1223,67 @@ static GLFWbool createNativeSurface(_GLFWwindow* window,
     return GLFW_TRUE;
 }
 
+GLFWbool setCursorShape(int shape) {
+    int xdgShape = -1;
+
+    switch (shape)
+    {
+        case GLFW_ARROW_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+            break;
+        case GLFW_IBEAM_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT;
+            break;
+        case GLFW_CROSSHAIR_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR;
+            break;
+        case GLFW_POINTING_HAND_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER;
+            break;
+        case GLFW_RESIZE_EW_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE;
+            break;
+        case GLFW_RESIZE_NS_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE;
+            break;
+        case GLFW_RESIZE_NWSE_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE;
+            break;
+        case GLFW_RESIZE_NESW_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
+            break;
+        case GLFW_RESIZE_ALL_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_ALL_SCROLL;
+            break;
+        case GLFW_NOT_ALLOWED_CURSOR:
+            xdgShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NOT_ALLOWED;
+            break;
+    }
+
+    if (xdgShape == -1)
+    {
+        return GLFW_FALSE;
+    }
+
+    wp_cursor_shape_device_v1_set_shape(_glfw.wl.cursorShapeDevice,
+        _glfw.wl.pointerEnterSerial,
+        xdgShape);
+
+    return GLFW_TRUE;
+}
+
 static void setCursorImage(_GLFWwindow* window,
                            _GLFWcursorWayland* cursorWayland)
 {
+    if (_glfw.wl.cursorShapeDevice && cursorWayland->shape != 0)
+    {
+        GLFWbool ok = setCursorShape(cursorWayland->shape);
+        if (ok == GLFW_TRUE)
+        {
+            return;
+        }
+    }
+
     struct itimerspec timer = {0};
     struct wl_cursor* wlCursor = cursorWayland->cursor;
     struct wl_cursor_image* image;
@@ -1929,6 +1989,10 @@ static void seatHandleCapabilities(void* userData,
     {
         _glfw.wl.pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(_glfw.wl.pointer, &pointerListener, NULL);
+        if (_glfw.wl.cursorShapeManager)
+        {
+            _glfw.wl.cursorShapeDevice = wp_cursor_shape_manager_v1_get_pointer(_glfw.wl.cursorShapeManager, _glfw.wl.pointer);
+        }
     }
     else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && _glfw.wl.pointer)
     {
@@ -2284,8 +2348,55 @@ void _glfwSetWindowTitleWayland(_GLFWwindow* window, const char* title)
 void _glfwSetWindowIconWayland(_GLFWwindow* window,
                                int count, const GLFWimage* images)
 {
-    _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
-                    "Wayland: The platform does not support setting the window icon");
+    if (!_glfw.wl.toplevelIconManager)
+    {
+        _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
+                        "Wayland: The platform does not support setting the window icon");
+        return;
+    }
+
+    if (!count)
+    {
+        if (window->wl.libdecor.frame)
+            xdg_toplevel_icon_manager_v1_set_icon(_glfw.wl.toplevelIconManager,
+                                                libdecor_frame_get_xdg_toplevel(window->wl.libdecor.frame),
+                                                NULL);
+        else if (window->wl.xdg.toplevel)
+            xdg_toplevel_icon_manager_v1_set_icon(_glfw.wl.toplevelIconManager, window->wl.xdg.toplevel, NULL);
+        return;
+    }
+
+    for (int i = 0;  i < count;  i++)
+    {
+        if (images[i].width != images[i].height)
+        {
+            _glfwInputError(GLFW_INVALID_VALUE,
+                            "Wayland: The icon must be a square");
+            return;
+        }
+    }
+
+    struct xdg_toplevel_icon_v1 *icon = xdg_toplevel_icon_manager_v1_create_icon(_glfw.wl.toplevelIconManager);
+    struct wl_buffer *bufferArr[count];
+
+    for (int i = 0;  i < count;  i++)
+    {
+        bufferArr[i] = createShmBuffer(&images[i]);
+        xdg_toplevel_icon_v1_add_buffer(icon, bufferArr[i], 1);
+    }
+
+    if (window->wl.libdecor.frame)
+        xdg_toplevel_icon_manager_v1_set_icon(_glfw.wl.toplevelIconManager,
+                                                libdecor_frame_get_xdg_toplevel(window->wl.libdecor.frame),
+                                                icon);
+    else if (window->wl.xdg.toplevel)
+        xdg_toplevel_icon_manager_v1_set_icon(_glfw.wl.toplevelIconManager, window->wl.xdg.toplevel, icon);
+    xdg_toplevel_icon_v1_destroy(icon);
+
+    for (int i = 0;  i < count;  i++)
+    {
+        wl_buffer_destroy(bufferArr[i]);
+    }
 }
 
 void _glfwGetWindowPosWayland(_GLFWwindow* window, int* xpos, int* ypos)
@@ -2812,6 +2923,8 @@ GLFWbool _glfwCreateCursorWayland(_GLFWcursor* cursor,
 
 GLFWbool _glfwCreateStandardCursorWayland(_GLFWcursor* cursor, int shape)
 {
+    cursor->wl.shape = shape;
+
     const char* name = NULL;
 
     // Try the XDG names first
@@ -3125,7 +3238,8 @@ void _glfwSetCursorWayland(_GLFWwindow* window, _GLFWcursor* cursor)
                 NULL,
                 0, 0,
                 0, 0,
-                0
+                0,
+                GLFW_ARROW_CURSOR
             };
 
             setCursorImage(window, &cursorWayland);
