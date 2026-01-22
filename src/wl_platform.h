@@ -130,6 +130,7 @@ struct wl_output;
 #define xdg_activation_token_v1_interface _glfw_xdg_activation_token_v1_interface
 #define wl_surface_interface _glfw_wl_surface_interface
 #define wp_fractional_scale_v1_interface _glfw_wp_fractional_scale_v1_interface
+#define wp_pointer_warp_v1_interface _glfw_pointer_warp_v1_interface
 
 #define GLFW_WAYLAND_WINDOW_STATE         _GLFWwindowWayland  wl;
 #define GLFW_WAYLAND_LIBRARY_WINDOW_STATE _GLFWlibraryWayland wl;
@@ -539,6 +540,7 @@ typedef struct _GLFWlibraryWayland
     struct xdg_toplevel_icon_manager_v1*    toplevelIconManager;
     struct wp_cursor_shape_manager_v1*      cursorShapeManager;
     struct wp_cursor_shape_device_v1*       cursorShapeDevice;
+    struct wp_pointer_warp_v1*  pointerWarp;
 
     _GLFWofferWayland*          offers;
     unsigned int                offerCount;

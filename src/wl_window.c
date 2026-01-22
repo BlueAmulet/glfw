@@ -53,6 +53,7 @@
 #include "fractional-scale-v1-client-protocol.h"
 #include "xdg-toplevel-icon-v1-client-protocol.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "pointer-warp-v1-client-protocol.h"
 
 #define GLFW_BORDER_SIZE    4
 #define GLFW_CAPTION_HEIGHT 24
@@ -3005,8 +3006,14 @@ void _glfwGetCursorPosWayland(_GLFWwindow* window, double* xpos, double* ypos)
 
 void _glfwSetCursorPosWayland(_GLFWwindow* window, double x, double y)
 {
-    _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
-                    "Wayland: The platform does not support setting the cursor position");
+    if (!_glfw.wl.pointerWarp)
+    {
+        _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
+                    "Wayland: The compositor does not support setting the cursor position");
+        return;
+    }
+
+    wp_pointer_warp_v1_warp_pointer(_glfw.wl.pointerWarp, window->wl.surface, _glfw.wl.pointer, wl_fixed_from_double(x), wl_fixed_from_double(y), _glfw.wl.pointerEnterSerial);
 }
 
 void _glfwSetCursorModeWayland(_GLFWwindow* window, int mode)

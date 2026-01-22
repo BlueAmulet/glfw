@@ -52,6 +52,7 @@
 #include "xdg-toplevel-icon-v1-client-protocol.h"
 #include "tablet-unstable-v2-client-protocol.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "pointer-warp-v1-client-protocol.h"
 
 // NOTE: Versions of wayland-scanner prior to 1.17.91 named every global array of
 //       wl_interface pointers 'types', making it impossible to combine several unmodified
@@ -104,6 +105,10 @@
 
 #define types _glfw_cursor_shape_types
 #include "cursor-shape-v1-client-protocol-code.h"
+#undef types
+
+#define types _glfw_pointer_warp_types
+#include "pointer-warp-v1-client-protocol-code.h"
 #undef types
 
 static void wmBaseHandlePing(void* userData,
@@ -235,6 +240,13 @@ static void registryHandleGlobal(void* userData,
         _glfw.wl.cursorShapeManager =
             wl_registry_bind(registry, name,
                              &wp_cursor_shape_manager_v1_interface,
+                             1);
+    }
+    else if (strcmp(interface, "wp_pointer_warp_v1") == 0)
+    {
+        _glfw.wl.pointerWarp =
+            wl_registry_bind(registry, name,
+                             &wp_pointer_warp_v1_interface,
                              1);
     }
 }
